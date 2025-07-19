@@ -66,8 +66,6 @@ def chat():
             f"Home remedies: {', '.join(set(cure['remedies']))}",
             "Let me know if you want to ask about another disease or have symptoms to share."
         ]
-        for msg in messages:
-            session["chat_session"].append({"role": "bot", "text": msg})
         return jsonify({"messages": messages})
     
     # Handle feedback
@@ -81,8 +79,6 @@ def chat():
                 "✅ Feedback saved.",
                 "You can now start a new session by entering your symptoms or asking about any disease."
             ]
-            for msg in messages:
-                session["chat_session"].append({"role": "bot", "text": msg})
             return jsonify({"messages": messages})
 
     # Reset on negatives
@@ -92,8 +88,6 @@ def chat():
             "🟢 Session reset.",
             "Tell me your new symptoms so I can help you better!"
         ]
-        for msg in messages:
-            session["chat_session"].append({"role": "bot", "text": msg})
         return jsonify({"messages": messages})
 
     # Small talk
@@ -103,17 +97,14 @@ def chat():
 
     if user_input in greetings:
         msg = "👋 Hello! I'm your health assistant bot. Tell me your symptoms, and I’ll try to help."
-        session["chat_session"].append({"role": "bot", "text": msg})
         return jsonify({"messages": [msg]})
 
     if user_input in gratitude:
         msg = "😊 You're welcome! Let me know if you have any symptoms or questions."
-        session["chat_session"].append({"role": "bot", "text": msg})
         return jsonify({"messages": [msg]})
 
     if user_input in polite_words:
         msg = "👍 Got it! Please go ahead and share your symptom."
-        session["chat_session"].append({"role": "bot", "text": msg})
         return jsonify({"messages": [msg]})
 
     # Symptom accumulation
