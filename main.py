@@ -1,5 +1,3 @@
-# C:\Users\DELL\AppData\Local\Programs\Python\Python313\python.exe -m pip install
-
 import spacy
 import pandas as pd
 import contractions
