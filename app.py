@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from main import predict_disease, predict_cure, reinforcement_learning, apply_renf_learning
 from difflib import get_close_matches
-import threading, os, json, time, atexit, datetime
+import threading, os, bcrypt
+from sqlite3 import *
 
 app = Flask(__name__)
 app.secret_key = "secret"
@@ -47,7 +48,7 @@ def find_closest_match(user_ip):
 @app.route('/')
 def home():
     session['symptoms'] = []
-    return render_template('index.html')
+    return render_template('index.html', user=session.get("user"))
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -144,8 +145,111 @@ def chat():
     msg = "❌ Sorry, something went wrong. Please try again."
     return jsonify({"messages": [msg]})
 
+USER_DB = 'databases/user_db.csv'
+
+@app.route("/login", methods=['GET', 'POST'])
+def login_win():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password  = request.form.get('password')
+        
+        if not os.path.exists(USER_DB):
+            return render_template("login.html", message="❌ No users found.", success=False)
+        
+        with open(USER_DB, 'r') as f:
+            all_lines = f.readlines()
+            lines = all_lines[1:] if "first_name" in all_lines[0].lower() else all_lines
+            for line in lines:
+                parts = line.strip().split(",")
+                if len(parts) < 6:
+                    continue
+                
+                stored_email = parts[3]
+                stored_pass = parts[5]
+                
+                if stored_email == email and bcrypt.checkpw(password.encode('utf-8'), stored_pass.encode('utf-8')):
+                    session['user'] = {
+                    'email': stored_email,
+                    'first_name': parts[0],
+                    'last_name': parts[1],
+                    'mobile': parts[2],
+                    'dob': parts[4],
+                    'password': stored_pass
+                    }
+                    return render_template("login.html", message="✅ Login successful!", success=True, close_window=True, username=parts[0])
+                
+        return render_template("login.html", message="❌ Invalid credentials.", success=False)
+    
+    return render_template('login.html')
+
+@app.route("/profile", methods=["GET", "POST"])
+def profile():
+    user = session.get("user")
+    if not user:
+        return "❌ You are not logged in.", 403
+
+    if request.method == "POST":
+        # Update only fields present in the form
+        for field in ['first_name', 'last_name', 'mobile', 'dob']:
+            if field in request.form:
+                user[field] = request.form[field]
+        session['user'] = user
+
+        # Update CSV
+        lines = []
+        with open("databases/user_db.csv", "r") as f:
+            lines = f.readlines()
+
+        for i in range(len(lines)):
+            parts = lines[i].strip().split(",")
+            if parts[3] == user['email']:  # email is unique
+                lines[i] = f"{user['first_name']},{user['last_name']},{user['mobile']},{user['email']},{user['dob']},{user['password']}\n"
+
+        with open("databases/user_db.csv", "w") as f:
+            f.writelines(lines)
+
+        return render_template("profile.html", user=user, message="✅ Changes saved successfully!", close_window=True)
+
+    return render_template("profile.html", user=user)
 
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        data = {
+            "first_name": request.form.get("first_name"),
+            "last_name": request.form.get("last_name"),
+            "mobile": request.form.get("mobile"),
+            "email": request.form.get("email"),
+            "dob": request.form.get("dob"),
+            "password": request.form.get("password"),
+            "confirm_password": request.form.get("confirm_password")
+        }
+        
+        if data["password"] != data["confirm_password"]:
+            return render_template("create_acc.html", message="❌ Passwords do not match.", success=False)
+        
+        if not data["email"] or "@" not in data["email"]:
+            return render_template("register.html", message="❌ Invalid email address.", success=False)
+
+        if not data["mobile"].isdigit() or len(data["mobile"]) != 10:
+            return render_template("register.html", message="❌ Invalid mobile number.", success=False)
+
+        # Hash the password
+        hashed_pw = bcrypt.hashpw(data["password"].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+        
+        with open(USER_DB, 'a') as f:
+            f.write(f"{data['first_name']},{data['last_name']},{data['mobile']},{data['email']},{data['dob']},{hashed_pw}\n")
+            
+        return render_template("create_acc.html", message="✅ Account created successfully. You may now log in.", success=True)
+        
+    return render_template('create_acc.html')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop("user", None)
+    return redirect(url_for("home"))
 
 if __name__ == '__main__':
     app.run(debug=True)
