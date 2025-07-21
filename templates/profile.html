@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your Profile</title>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #1f2937;
+      color: white;
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 30px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 90vh;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .message {
+      text-align: center;
+      margin-bottom: 20px;
+      color: lightgreen;
+    }
+
+    .field-group {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .field-group input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      margin-right: 10px;
+    }
+
+    .field-group input[readonly] {
+      background: rgba(255, 255, 255, 0.05);
+      cursor: not-allowed;
+    }
+
+    .field-group button {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #3b82f6;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .field-group button.save {
+      background: #10b981;
+    }
+
+    .logout-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .logout-btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      background: #ef4444;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .logout-btn:hover {
+      background: #dc2626;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <h2>Your Profile</h2>
+      {% if message %}
+        <div class="message">{{ message }}</div>
+      {% endif %}
+
+      <form method="POST" id="profileForm">
+        {% for field, label in [
+            ('first_name', 'First Name'),
+            ('last_name', 'Last Name'),
+            ('mobile', 'Mobile Number'),
+            ('dob', 'Date of Birth')
+        ] %}
+          <div class="field-group">
+            <input type="{{ 'date' if field == 'dob' else 'text' }}"
+                   name="{{ field }}"
+                   value="{{ user[field] if field in user else '' }}"
+                   readonly
+                   id="{{ field }}">
+            <button type="button" onclick="toggleEdit('{{ field }}', this)">Edit</button>
+          </div>
+        {% endfor %}
+
+        <div class="field-group">
+          <input type="email" value="{{ user['email'] }}" readonly>
+          
+        </div>
+      </form>
+    </div>
+
+    <div class="logout-container">
+      <form action="{{ url_for('logout') }}" method="POST">
+        <button type="submit" class="logout-btn">Logout</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function toggleEdit(fieldId, btn) {
+      const input = document.getElementById(fieldId);
+      if (btn.textContent === "Edit") {
+        input.removeAttribute("readonly");
+        input.focus();
+        btn.textContent = "Save";
+        btn.classList.add("save");
+      } else {
+        document.getElementById("profileForm").submit();
+      }
+    }
+  </script>
+</body>
+</html>

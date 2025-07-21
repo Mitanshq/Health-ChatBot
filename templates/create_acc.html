@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Create Account</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: linear-gradient(135deg, #1f2937, #4b5563);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .register-container {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 30px 40px;
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      width: 400px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    .register-container h2 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .register-container input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 16px;
+    }
+
+    .register-container button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 15px;
+      cursor: pointer;
+      background: #10b981;
+      color: white;
+      transition: background 0.2s;
+    }
+
+    .register-container button:hover {
+      background: #059669;
+    }
+  </style>
+</head>
+<body>
+  <div class="register-container">
+    <h2>Create Account</h2>
+    {% if message %}
+        <div style="margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 10px; text-align: center; color: {{ 'lightgreen' if success else 'tomato' }};">
+            {{ message }}
+        </div>
+    {% endif %}
+
+    {% if close_window %}
+        setTimeout(() => {
+        window.close();
+        }, 1000);  // Closes the window after 1 second
+    {% endif %}
+    <form method="post" action="/register">
+      <input type="text" name="first_name" placeholder="First Name" required />
+      <input type="text" name="last_name" placeholder="Last Name" required />
+      <input type="tel" name="mobile" placeholder="Mobile Number" required pattern="[0-9]{10}" />
+      <input type="email" name="email" placeholder="Email" required />
+      <input type="date" name="dob" placeholder="Date of Birth" required />
+      <input type="password" name="password" placeholder="Password" required />
+      <input type="password" name="confirm_password" placeholder="Confirm Password" required />
+      <button type="submit">Create Account</button>
+    </form>
+  </div>
+</body>
+</html>
