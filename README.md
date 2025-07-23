@@ -1,3 +1,2 @@
 This project is currently under development and some features are yet to be added.
-If you want to test this bot, here's the link : Mitanshcr7.pythonanywhere.com
-Try the bot and give me suggestions/changes to make...
+
