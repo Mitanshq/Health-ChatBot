@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from main import predict_disease, predict_cure, reinforcement_learning, apply_renf_learning
 from difflib import get_close_matches
-import threading, os, bcrypt
+import threading, os, bcrypt, random, re
 from sqlite3 import *
 
 app = Flask(__name__)
@@ -12,6 +12,61 @@ CHAT_FILE = 'chats.json'
 negative_phrases = [
     'no', 'nah', 'nope', 'not really', 'i am fine', 'nothing', 'np',
     'thank you', 'you are right', 'correct', 'right', 'no problem'
+]
+
+ini_prompt = [
+    "Tell me your new symptoms so I can help you better!",
+    "Please share your symptoms so I can assist you.",
+    "What symptoms are you experiencing now?",
+    "Let me know how you're feeling.",
+    "Describe your current health issues.",
+    "Could you tell me what you're feeling?",
+    "I’m here to help—what symptoms do you have?",
+    "What problems or discomfort are you facing?",
+    "Share your symptoms to proceed.",
+    "Tell me what’s bothering you.",
+    "Let’s start again—what symptoms are present?",
+    "Can you list the symptoms you're feeling now?",
+    "I need your symptoms to guide you properly.",
+    "What signs or symptoms are you noticing?",
+    "Mention the issues you're dealing with currently.",
+    "Input your symptoms to get accurate suggestions."
+]
+
+more_prompt = [
+    "Tell me your new symptoms so I can help you better!",
+    "Please tell me what other symptoms you're experiencing.",
+    "Can you describe any other issues you're facing?",
+    "Share more symptoms so I can assist you properly.",
+    "What else are you feeling?",
+    "Let me know any other symptoms you're noticing.",
+    "I'd like to know more about how you're feeling.",
+    "Tell me about any additional discomfort you're having.",
+    "Are there other symptoms you’d like to mention?",
+    "Please list all the symptoms you have.",
+    "What other signs or problems are you experiencing?",
+    "Is there anything else unusual you're feeling?",
+    "Add more symptoms if you're feeling anything else.",
+    "What additional health issues are you noticing?",
+    "I need more details — tell me more symptoms."
+]
+
+not_confident_phrases = [
+    "I'm not fully confident.",
+    "I'm a bit unsure at this point.",
+    "I need more information to be certain.",
+    "I’m not entirely sure yet.",
+    "It’s hard to tell right now.",
+    "I can't say for sure yet.",
+    "My prediction isn't strong enough.",
+    "I'm having trouble making a clear diagnosis.",
+    "The symptoms aren't specific enough yet.",
+    "I’m still unsure based on the given info.",
+    "It’s not clear to me just yet.",
+    "I'm detecting a few possibilities, not one clear answer.",
+    "I need a few more clues to be accurate.",
+    "It’s difficult to be confident right now.",
+    "I might be missing something — help me with more details."
 ]
 
 known_diseases = {
@@ -37,6 +92,99 @@ known_diseases = {
     "urinary tract infection": ["burning urination", "frequent urination", "cloudy urine", "pelvic pain"]
 }
 
+possible_conditions_phrases = [
+    "You might be experiencing one of the following:",
+    "Here are a few conditions that match your symptoms:",
+    "These could be the possible diagnoses:",
+    "Based on your input, these are some likely conditions:",
+    "I suspect one of the following conditions:",
+    "It might be related to one of these:",
+    "Here are a few possibilities:",
+    "These are some conditions that could be causing your symptoms:",
+    "You may be dealing with one of these:",
+    "These conditions match your symptoms closely:",
+    "This could point to any of the following:",
+    "Several conditions seem to fit. They include:",
+    "Your symptoms align with these potential conditions:",
+    "It’s possibly one of these:",
+    "These are the most probable causes I found:"
+]
+
+predicted_disease_phrases = [
+    "✅ It seems like you may have",
+    "✅ Based on the symptoms, you could have",
+    "✅ You might be showing signs of",
+    "✅ My analysis suggests it could be",
+    "✅ This may be a case of",
+    "✅ Possibly, you’re experiencing",
+    "✅ I suspect you might have",
+    "✅ These symptoms often relate to",
+    "✅ Looks like it could be",
+    "✅ There’s a good chance this is",
+    "✅ You may be affected by",
+    "✅ I’d say it appears to be",
+    "✅ Your symptoms match with",
+    "✅ Most likely, this is",
+    "✅ I'm fairly confident this is"
+]
+
+medication_phrases = [
+    "💊 Here are the suggested medications:",
+    "💊 You may consider taking the following medicines:",
+    "💊 Recommended drugs for this condition include:",
+    "💊 Possible treatment options are:",
+    "💊 Based on your symptoms, try these medications:",
+    "💊 Suggested pharmaceutical aids:",
+    "💊 The following medicines might help:",
+    "💊 Medications you can take:",
+    "💊 Here’s what you can use to treat it:",
+    "💊 Listed medications are typically used:",
+    "💊 You could benefit from these treatments:",
+    "💊 Common prescriptions include:",
+    "💊 Try the following drugs:",
+    "💊 Doctors usually recommend:",
+    "💊 Consider these for relief:"
+]
+
+remedy_phrases = [
+    "🏡 Here are some helpful home remedies:",
+    "🏡 You can try the following natural treatments:",
+    "🏡 Suggested remedies you can do at home:",
+    "🏡 These home treatments might ease your symptoms:",
+    "🏡 Try these at-home solutions:",
+    "🏡 Natural ways to feel better include:",
+    "🏡 Home-based remedies to consider:",
+    "🏡 You might find relief with these home cures:",
+    "🏡 Consider these traditional remedies:",
+    "🏡 Safe and easy remedies to try at home:",
+    "🏡 Here’s how you can treat it naturally:",
+    "🏡 Use these home remedies for relief:",
+    "🏡 Simple home tips that can help:",
+    "🏡 Household treatments you can follow:",
+    "🏡 These might help if you're treating it at home:"
+]
+
+feedback_phrases = [
+    "🤔 Did that help you?",
+    "✅ Was this information useful to you?",
+    "💬 Does this answer your concern?",
+    "🧐 Did I get that right?",
+    "❓Was this what you were looking for?",
+    "👍 Was that helpful?",
+    "✅ Do you feel this solved your issue?",
+    "🙂 Was this suggestion useful?",
+    "📩 Did this advice help you?",
+    "🙋‍♂️ Was that the info you needed?",
+    "✅ Does this make sense to you?",
+    "🤖 Was this accurate for you?",
+    "🙌 Was this response okay?",
+    "🧠 Did this help you understand better?",
+    "🔍 Did that clear things up?"
+]
+
+all_known_symptoms = set()
+for symptoms in known_diseases.values():
+    all_known_symptoms.update(s.strip().lower() for s in symptoms)
 
 def disease_to_sypmtom(disease):
     return known_diseases.get(disease.lower())
@@ -48,27 +196,39 @@ def find_closest_match(user_ip):
 @app.route('/')
 def home():
     session['symptoms'] = []
+    session['steps'] = 0
     return render_template('index.html', user=session.get("user"))
 
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
     user_input = data.get("message", "").strip().lower()
-    
+
+    def clean_text(text):
+        return re.sub(r'[^a-zA-Z\s]', '', text.lower().strip())
+
+    def validate_symptom(symptom):
+        symptom = clean_text(symptom)
+        if symptom in all_known_symptoms:
+            return symptom
+        match = get_close_matches(symptom, all_known_symptoms, n=1, cutoff=0.85)
+        return match[0] if match else None
+
     disease = find_closest_match(user_input)
 
+    # Check if it's a known disease query
     if user_input in known_diseases:
         symptoms = disease_to_sypmtom(user_input)
-        cure = predict_cure(disease)
+        cure = predict_cure(user_input)
         messages = [
-            f"You mentioned {disease}",
+            f"You mentioned {user_input}",
             f"Here are some Symptoms: {', '.join(set(symptoms))}",
             f"Suggested Medications: {', '.join(set(cure['medication']))}",
             f"Home remedies: {', '.join(set(cure['remedies']))}",
             "Let me know if you want to ask about another disease or have symptoms to share."
         ]
         return jsonify({"messages": messages})
-    
+
     # Handle feedback
     if user_input in ["yes", "y", "correct", "no", "n", "wrong", "incorrect"]:
         predicted_data = session.get('last_prediction')
@@ -85,65 +245,65 @@ def chat():
     # Reset on negatives
     if user_input in negative_phrases:
         session['symptoms'] = []
+        session['steps'] = 0
         messages = [
             "🟢 Session reset.",
-            "Tell me your new symptoms so I can help you better!"
+            random.choice(ini_prompt)
         ]
         return jsonify({"messages": messages})
 
-    # Small talk
+    # Small talk handling
     greetings = ["hi", "hello", "hey", "good morning", "good evening", 'gm', 'wassup', 'hey there']
     gratitude = ["thanks", "thank you", "thnx", "thank u", "ty", 'tysm']
     polite_words = ["please", "okay", "ok", "hmm", "cool", 'pls', 'plss']
 
     if user_input in greetings:
-        msg = "👋 Hello! I'm your health assistant bot. Tell me your symptoms, and I’ll try to help."
-        return jsonify({"messages": [msg]})
-
+        return jsonify({"messages": ["👋 Hello! I'm your health assistant bot. Tell me your symptoms, and I’ll try to help."]})
     if user_input in gratitude:
-        msg = "😊 You're welcome! Let me know if you have any symptoms or questions."
-        return jsonify({"messages": [msg]})
-
+        return jsonify({"messages": ["😊 You're welcome! Let me know if you have any symptoms or questions."]})
     if user_input in polite_words:
-        msg = "👍 Got it! Please go ahead and share your symptom."
-        return jsonify({"messages": [msg]})
+        return jsonify({"messages": ["👍 Got it! Please go ahead and share your symptom."]})
 
-    # Symptom accumulation
+    # Validate input symptom
+    validated = validate_symptom(user_input)
+    if not validated:
+        return jsonify({"messages": ["❌ That doesn't seem like a medical symptom. Try again with a valid issue."]})
+
+    # Accumulate symptom
     symptoms = session.get('symptoms', [])
-    symptoms.append(user_input)
+    symptoms.append(validated)
     session['symptoms'] = symptoms
+    session['steps'] = session.get('steps', 0) + 1
 
+    # Predict
     response = predict_disease(", ".join(symptoms))
 
     if response['status'] == 'ambiguous':
-        top_diseases = [f"{d}" for d, _ in response['possible_diseases']]
         messages = [
-            "🤔 I'm not fully confident yet.",
-            f"Possible conditions include: {', '.join(top_diseases)}.",
-            "Can you tell me a few more symptoms?"
+            f"{random.choice(possible_conditions_phrases)} {', '.join([d for d, _ in response['possible_diseases']])}.",
+            f"{random.choice(not_confident_phrases)}",
+            f"{random.choice(more_prompt)}"
         ]
         return jsonify({"messages": messages})
 
     elif response['status'] == 'confident':
         disease = response['predicted']
         cure = predict_cure(disease)
-        messages = [
-            f"✅ I believe you might have {disease}",
-            "💊 Recommended Medications: " + ", ".join(set(cure['medication'])),
-            "🏡 Home Remedies: " + ", ".join(set(cure['remedies'])),
-            "Was this helpful? (yes/no)"
-        ]
-
         session['last_prediction'] = {
             "symptoms": symptoms.copy(),
             "disease": disease
         }
+        session['steps'] = 0
         session['symptoms'] = []
+        messages = [
+            f"{random.choice(predicted_disease_phrases)} {disease}",
+            f"{random.choice(medication_phrases)} {', '.join(set(cure['medication']))}",
+            f"{random.choice(remedy_phrases)} {', '.join(set(cure['remedies']))}",
+            f"{random.choice(feedback_phrases)} (YES/NO)"
+        ]
         return jsonify({"messages": messages})
 
-    # Error fallback
-    msg = "❌ Sorry, something went wrong. Please try again."
-    return jsonify({"messages": [msg]})
+    return jsonify({"messages": ["❌ Sorry, something went wrong. Please try again."]})
 
 USER_DB = 'databases/user_db.csv'
 
