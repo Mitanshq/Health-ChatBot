@@ -182,16 +182,48 @@ feedback_phrases = [
     "🔍 Did that clear things up?"
 ]
 
+invalid_symptom_phrases = [
+    "❌ I couldn't recognize that as a symptom. Please try again.",
+    "❌ That doesn’t look like a health issue. Can you rephrase?",
+    "❌ Hmm... That doesn’t seem to be a valid medical symptom.",
+    "❌ I’m not familiar with that. Try entering a real symptom.",
+    "❌ That input doesn’t match any known symptoms. Please check it.",
+    "❌ I couldn’t find any health condition related to that.",
+    "❌ That doesn't appear to be something I can diagnose. Try another symptom.",
+    "❌ Please enter an actual symptom for me to help you.",
+    "❌ I'm not trained to understand that input as a symptom.",
+    "❌ That doesn’t seem health-related. Please enter a symptom.",
+    "❌ Try again with a medically relevant issue.",
+    "❌ That doesn’t seem like something I can assess. Try a real symptom.",
+    "❌ It looks like you entered something unrelated. Please try a valid symptom.",
+    "❌ Sorry, but I can only help with known health symptoms.",
+    "❌ That term isn’t recognized as a symptom. Can you rephrase it?"
+]
+
+new_session_phrases = [
+    "🔄 You can begin a new session by sharing your symptoms or asking about a disease.",
+    "🆕 Let's start fresh! Enter your symptoms or mention a condition you're curious about.",
+    "💬 Ready when you are — share your symptoms or ask about any illness.",
+    "🩺 Please go ahead and tell me your symptoms or name a disease to explore.",
+    "📋 You can now type new symptoms or ask for info on a health condition.",
+    "🌐 Restarting... enter symptoms or inquire about any disease.",
+    "🔁 Start a new chat by telling me how you're feeling or what you want to know.",
+    "🗣️ Share your symptoms again or ask about another health issue.",
+    "📤 New session started. Type your symptoms or ask me about a disease.",
+    "💡 Feel free to describe new symptoms or get details about any condition.",
+    "🔍 Let's begin again! Tell me your symptoms or the disease you're concerned about.",
+    "🎯 You may now enter a new symptom list or ask about a different disease.",
+    "⚕️ I'm ready — tell me how you're feeling or what you'd like to know.",
+    "📣 Go ahead and enter symptoms or ask about another diagnosis.",
+    "🩹 Begin your health check again — symptoms or disease name, please!"
+]
+
 all_known_symptoms = set()
 for symptoms in known_diseases.values():
     all_known_symptoms.update(s.strip().lower() for s in symptoms)
 
 def disease_to_sypmtom(disease):
     return known_diseases.get(disease.lower())
-
-def find_closest_match(user_ip):
-    matches = get_close_matches(user_ip, known_diseases.keys(), n=1, cutoff=0.8)
-    return matches[0] if matches else None
 
 @app.route('/')
 def home():
@@ -205,8 +237,16 @@ def chat():
     user_input = data.get("message", "").strip().lower()
 
     def clean_text(text):
-        return re.sub(r'[^a-zA-Z\s]', '', text.lower().strip())
-
+        cleaned = text.lower().strip()
+        cleaned = re.sub(
+            r'\b(a|lot of|lots of|too much|very|mild|severe|kind of|bit of|some|can|you|describe|tell|me|more|about|the|called|info|disease|mention|any|information|in|detail|details|brief|briefly|us|will|educate|bout|less|bit|much|high|highly|lessly)\b',
+            '', cleaned)
+        cleaned = re.sub(r'[^\w\s]', '', cleaned)  # removes all punctuation
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned
+        
+    cleaned_user_ip = clean_text(user_input)
+        
     def validate_symptom(symptom):
         symptom = clean_text(symptom)
         if symptom in all_known_symptoms:
@@ -214,14 +254,12 @@ def chat():
         match = get_close_matches(symptom, all_known_symptoms, n=1, cutoff=0.85)
         return match[0] if match else None
 
-    disease = find_closest_match(user_input)
-
     # Check if it's a known disease query
-    if user_input in known_diseases:
-        symptoms = disease_to_sypmtom(user_input)
-        cure = predict_cure(user_input)
+    if cleaned_user_ip in known_diseases:
+        symptoms = disease_to_sypmtom(cleaned_user_ip)
+        cure = predict_cure(cleaned_user_ip)
         messages = [
-            f"You mentioned {user_input}",
+            f"You mentioned {cleaned_user_ip}",
             f"Here are some Symptoms: {', '.join(set(symptoms))}",
             f"Suggested Medications: {', '.join(set(cure['medication']))}",
             f"Home remedies: {', '.join(set(cure['remedies']))}",
@@ -233,12 +271,13 @@ def chat():
     if user_input in ["yes", "y", "correct", "no", "n", "wrong", "incorrect"]:
         predicted_data = session.get('last_prediction')
         if predicted_data:
-            reinforcement_learning(predicted_data['symptoms'], predicted_data['disease'], user_input)
+            reinforcement_learning(predicted_data['symptoms'], predicted_data['disease'], cleaned_user_ip)
             threading.Thread(target=apply_renf_learning, daemon=True).start()
             session.pop("last_prediction", None)
+            new_sess_prompt = random.choice(new_session_phrases)
             messages = [
                 "✅ Feedback saved.",
-                "You can now start a new session by entering your symptoms or asking about any disease."
+                f'{new_sess_prompt}'
             ]
             return jsonify({"messages": messages})
 
@@ -256,18 +295,74 @@ def chat():
     greetings = ["hi", "hello", "hey", "good morning", "good evening", 'gm', 'wassup', 'hey there']
     gratitude = ["thanks", "thank you", "thnx", "thank u", "ty", 'tysm']
     polite_words = ["please", "okay", "ok", "hmm", "cool", 'pls', 'plss']
+    greeting_phrases = [
+    "👋 Hi there! I'm your health assistant. What symptoms are you experiencing?",
+    "🤖 Hello! I’m here to help you with health issues. Tell me your symptoms.",
+    "🩺 Hey! I’m your medical assistant. Describe what you're feeling.",
+    "🙌 Welcome! Please share any symptoms so I can assist you.",
+    "👋 Hi! I'm here to guide you through any health concerns. Let’s start with your symptoms.",
+    "👨‍⚕️ Hello! I can help diagnose based on your symptoms. What are you feeling?",
+    "🧠 Hi! I’m trained to assist with health info. Tell me what’s bothering you.",
+    "🖐️ Greetings! I’m here to support you. What symptoms do you have?",
+    "💬 Hello there! Share your health concerns or symptoms, and I’ll do my best to help.",
+    "👋 Welcome! You can start by describing what you’re feeling.",
+    "🤝 Hello! Let’s figure out what’s going on. What symptoms are you facing?",
+    "🌟 Hi! Share how you're feeling and I’ll try to identify possible conditions.",
+    "🧑‍⚕️ Hey there! Tell me your symptoms so I can assist with some advice.",
+    "📋 Hello! Start by listing any symptoms you're experiencing.",
+    "🌈 Hi! I’m your friendly health assistant bot. What’s troubling you today?"
+]
+    gratitude_responses = [
+    "😊 You're welcome! I'm here if you have more symptoms or queries.",
+    "😄 Anytime! Feel free to ask anything health-related.",
+    "🤗 No problem at all! Let me know if you’re feeling anything unusual.",
+    "🙌 Glad I could help! Got more symptoms or questions?",
+    "🙂 You’re very welcome! I’m ready for your next symptom or doubt.",
+    "💬 Sure thing! Tell me if anything else is bothering you.",
+    "😌 Happy to help! What else can I assist you with?",
+    "😁 You’re welcome! Want to talk about another symptom?",
+    "🩺 No worries! I’m here for your health questions.",
+    "🙏 Of course! Do share if anything else is troubling you.",
+    "👩‍⚕️ Always here to help! Got another concern?",
+    "👍 You got it! Let me know if you feel anything odd.",
+    "🥼 Anytime! I'm listening — what symptoms do you have?",
+    "🤖 My pleasure! Got any more health concerns?",
+    "✅ You're welcome! Let me know if you’d like to continue."
+]
+    polite_response_phrases = [
+    "👍 Got it! Please go ahead and share your symptom.",
+    "👌 Understood! Let me know what you're experiencing.",
+    "📝 Alright! Tell me your symptom so I can assist.",
+    "✅ Okay! What symptom would you like to share?",
+    "🫡 Sure! Please describe how you're feeling.",
+    "🗣️ Alrighty! Share your symptom when you're ready.",
+    "📋 Got you! Go ahead and tell me your health issue.",
+    "👍 Perfect! Now just tell me your symptom.",
+    "🙂 Noted! What are you feeling right now?",
+    "🩺 Thanks! Please share your symptoms with me.",
+    "💡 Okay, great! What problem can I help with?",
+    "👂 I’m listening! What symptom are you having?",
+    "🫶 Got it. Let me know what’s troubling you.",
+    "📢 Go ahead! I'm ready for your symptom.",
+    "🚨 Sure! Describe the health concern you're facing."
+]
+
 
     if user_input in greetings:
-        return jsonify({"messages": ["👋 Hello! I'm your health assistant bot. Tell me your symptoms, and I’ll try to help."]})
+        greeting_prompt = random.choice(greeting_phrases)
+        return jsonify({"messages": [f'{greeting_prompt}']})
     if user_input in gratitude:
-        return jsonify({"messages": ["😊 You're welcome! Let me know if you have any symptoms or questions."]})
+        grat_prompt = random.choice(gratitude_responses)
+        return jsonify({"messages": [f'{grat_prompt}']})
     if user_input in polite_words:
-        return jsonify({"messages": ["👍 Got it! Please go ahead and share your symptom."]})
+        polite_prompt = random.choice(polite_response_phrases)
+        return jsonify({"messages": [f'{polite_prompt}']})
 
     # Validate input symptom
-    validated = validate_symptom(user_input)
+    validated = validate_symptom(cleaned_user_ip)
     if not validated:
-        return jsonify({"messages": ["❌ That doesn't seem like a medical symptom. Try again with a valid issue."]})
+        invalid_prompt = random.choice(invalid_symptom_phrases)
+        return jsonify({"messages": [f'{invalid_prompt}']})
 
     # Accumulate symptom
     symptoms = session.get('symptoms', [])
@@ -306,6 +401,8 @@ def chat():
     return jsonify({"messages": ["❌ Sorry, something went wrong. Please try again."]})
 
 USER_DB = 'databases/user_db.csv'
+
+os.makedirs(os.path.dirname(USER_DB), exist_ok=True)
 
 @app.route("/login", methods=['GET', 'POST'])
 def login_win():
@@ -354,6 +451,8 @@ def profile():
             if field in request.form:
                 user[field] = request.form[field]
         session['user'] = user
+        
+        os.makedirs(os.path.dirname(USER_DB), exist_ok=True)
 
         # Update CSV
         lines = []
@@ -398,6 +497,7 @@ def register():
         # Hash the password
         hashed_pw = bcrypt.hashpw(data["password"].encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
+        os.makedirs(os.path.dirname(USER_DB), exist_ok=True)
         
         with open(USER_DB, 'a') as f:
             f.write(f"{data['first_name']},{data['last_name']},{data['mobile']},{data['email']},{data['dob']},{hashed_pw}\n")
